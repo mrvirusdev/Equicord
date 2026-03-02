@@ -1,5 +1,5 @@
 /*
- * Vencord, a modification for Discord's desktop app
+ * Equicord, a modification for Discord's desktop app
  * Copyright (c) 2026 Vendicated and contributors
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,12 +18,13 @@
 
 import { ChatBarButton, ChatBarButtonFactory, ChatBarProps } from "@api/ChatButtons";
 import { DeleteIcon } from "@components/Icons";
+import { classNameFactory } from "@utils/css";
 import { classes, sleep } from "@utils/misc";
 import { IconComponent } from "@utils/types";
 import { Message } from "@vencord/discord-types";
 import { Alerts, AuthenticationStore, Constants, MessageActions, RestAPI, Toasts } from "@webpack/common";
 
-import { cl } from "./utils";
+const cl = classNameFactory("vc-message-deleter");
 
 export const DeleterIcon: IconComponent = ({ height = 20, width = 20, className }: { height?: number | string; width?: number | string; className?: string; }) => {
     return (
@@ -43,7 +44,7 @@ async function deleteMyMessages(channelId: string) {
     const toastId = Toasts.genId();
 
     try {
-        while (true) {
+        while (deletedCount < 100) {
             const { body: messages }: { body: Message[]; } = await RestAPI.get({
                 url: Constants.Endpoints.MESSAGES(channelId),
                 query: {
@@ -57,12 +58,13 @@ async function deleteMyMessages(channelId: string) {
             const myMessages = messages.filter(m => m.author.id === myId);
 
             for (const msg of myMessages) {
+                if (deletedCount >= 100) break;
                 // We use true for 'silent' to avoid triggering more things
                 await MessageActions.deleteMessage(channelId, msg.id, true);
                 deletedCount++;
                 Toasts.show({
                     id: toastId,
-                    message: `Deleting messages... (${deletedCount})`,
+                    message: `Deleting messages... (${deletedCount}/100)`,
                     type: Toasts.Type.SUCCESS
                 });
                 // Small delay to be polite to the API
