@@ -44,7 +44,20 @@ async function deleteMyMessages(channelId: string) {
     const toastId = Toasts.genId();
 
     try {
-        while (deletedCount < 100) {
+        let targetLimit = 100;
+        try {
+            const searchResp = await RestAPI.get({
+                url: `${Constants.Endpoints.MESSAGES(channelId)}/search`,
+                query: { author_id: myId }
+            });
+            if (searchResp.body?.total_results !== undefined) {
+                targetLimit = Math.min(searchResp.body.total_results, 100);
+            }
+        } catch (e) {
+            // Search might not be available in all channels (e.g. DMs), fallback to 100
+        }
+
+        while (deletedCount < targetLimit) {
             const { body: messages }: { body: Message[]; } = await RestAPI.get({
                 url: Constants.Endpoints.MESSAGES(channelId),
                 query: {
@@ -58,13 +71,13 @@ async function deleteMyMessages(channelId: string) {
             const myMessages = messages.filter(m => m.author.id === myId);
 
             for (const msg of myMessages) {
-                if (deletedCount >= 100) break;
+                if (deletedCount >= targetLimit) break;
                 // We use true for 'silent' to avoid triggering more things
                 await MessageActions.deleteMessage(channelId, msg.id, true);
                 deletedCount++;
                 Toasts.show({
                     id: toastId,
-                    message: `Deleting messages... (${deletedCount}/100)`,
+                    message: `Deleting messages... (${deletedCount}/${targetLimit})`,
                     type: Toasts.Type.SUCCESS
                 });
                 // Small delay to be polite to the API
